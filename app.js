@@ -1,7 +1,14 @@
+const strokeIcon=path=>`<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="${path}"/></svg>`;
+const motionIcons={pause:strokeIcon('M9 5v14M15 5v14'),play:strokeIcon('m9 5 10 7-10 7Z')};
+const projectMarks={
+sourcewell:'<rect x="17" y="10" width="29" height="42" rx="4"/><path d="M24 20h15M24 27h15M24 34h8m2 11 4 4 9-10"/><circle cx="42" cy="45" r="11"/>',
+velosync:'<path d="M12 13h27a5 5 0 0 1 5 5v16a5 5 0 0 1-5 5H24l-10 8v-8h-2a5 5 0 0 1-5-5V18a5 5 0 0 1 5-5Z"/><path d="M26 44h13l10 8v-8h2a5 5 0 0 0 5-5V27a5 5 0 0 0-5-5M17 24h17M17 30h10"/>',
+espion:'<rect x="17" y="15" width="30" height="42" rx="5"/><rect x="22" y="22" width="20" height="14" rx="2"/><path d="M39 15V7m-11 37 4-4 4 4m-8 5 4 4 4-4M10 13a18 18 0 0 1 4-6m36 0a18 18 0 0 1 4 6"/>'
+};
 const motionButton = document.querySelector('#motion');
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 let paused = reduced.matches;
-function updateMotion(){ document.body.classList.toggle('motion-paused', paused); motionButton.setAttribute('aria-pressed', String(paused)); motionButton.setAttribute('aria-label', paused ? 'Resume animations' : 'Pause animations'); motionButton.querySelector('span').textContent = paused ? '▷' : 'Ⅱ'; motionButton.querySelector('.motion-label').textContent = paused ? 'Resume motion' : 'Pause motion'; document.dispatchEvent(new Event('motionchange')); }
+function updateMotion(){ document.body.classList.toggle('motion-paused', paused); motionButton.setAttribute('aria-pressed', String(paused)); motionButton.setAttribute('aria-label', paused ? 'Resume animations' : 'Pause animations'); motionButton.querySelector('.motion-icon').innerHTML = paused ? motionIcons.play : motionIcons.pause; motionButton.querySelector('.motion-label').textContent = paused ? 'Resume motion' : 'Pause motion'; document.dispatchEvent(new Event('motionchange')); }
 motionButton.addEventListener('click', () => { paused = !paused; updateMotion(); });
 reduced.addEventListener('change', () => { paused = reduced.matches; updateMotion(); });
 updateMotion();
@@ -63,10 +70,10 @@ espion:{label:'03 / EMBEDDED SYSTEMS · IN DEVELOPMENT',title:'ESPION',lead:'A s
 const dialog=document.querySelector('#project-dialog');let opener;let focusContact=false;
 function closeProject(){dialog.close();}
 document.querySelectorAll('[data-project]').forEach(button=>button.addEventListener('click',()=>{
-const data=projects[button.dataset.project];opener=button;dialog.dataset.project=button.dataset.project;
+const data=projects[button.dataset.project];opener=button;dialog.dataset.project=button.dataset.project;document.querySelector('#dialog-project-mark').innerHTML=`<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${projectMarks[button.dataset.project]}</svg>`;
 document.querySelector('#dialog-label').textContent=data.label;document.querySelector('#dialog-title').textContent=data.title;document.querySelector('#dialog-lead').textContent=data.lead;document.querySelector('#dialog-detail').innerHTML=data.detail;
 const detail=document.querySelector('#dialog-detail');let detailSection;[...detail.children].forEach(node=>{if(node.tagName==='H3'){detailSection=document.createElement('section');detailSection.className='detail-section';detail.append(detailSection);}detailSection?.append(node);});
-document.querySelector('#dialog-links').innerHTML=data.url?`<a href="${data.url}" target="_blank" rel="noopener noreferrer">View source on GitHub ↗</a>`:'<a href="#contact" id="discuss-project">Talk about the project ↗</a>';
+document.querySelector('#dialog-links').innerHTML=data.url?`<a href="${data.url}" target="_blank" rel="noopener noreferrer">View source on GitHub ${strokeIcon('M7 17 17 7M7 7h10v10')}</a>`:`<a href="#contact" id="discuss-project">Talk about the project ${strokeIcon('M7 17 17 7M7 7h10v10')}</a>`;
 dialog.showModal();document.body.classList.add('no-scroll');dialog.scrollTop=0;dialog.querySelector('.dialog-close').focus();
 dialog.querySelector('#discuss-project')?.addEventListener('click',()=>{focusContact=true;closeProject();});
 }));
