@@ -1,131 +1,172 @@
-const strokeIcon=path=>`<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="${path}"/></svg>`;
-const motionIcons={pause:strokeIcon('M9 5v14M15 5v14'),play:strokeIcon('m9 5 10 7-10 7Z')};
-const projectMarks={
-sourcewell:'<rect x="17" y="10" width="29" height="42" rx="4"/><path d="M24 20h15M24 27h15M24 34h8m2 11 4 4 9-10"/><circle cx="42" cy="45" r="11"/>',
-velosync:'<path d="M12 13h27a5 5 0 0 1 5 5v16a5 5 0 0 1-5 5H24l-10 8v-8h-2a5 5 0 0 1-5-5V18a5 5 0 0 1 5-5Z"/><path d="M26 44h13l10 8v-8h2a5 5 0 0 0 5-5V27a5 5 0 0 0-5-5M17 24h17M17 30h10"/>',
-espion:'<rect x="17" y="15" width="30" height="42" rx="5"/><rect x="22" y="22" width="20" height="14" rx="2"/><path d="M39 15V7m-11 37 4-4 4 4m-8 5 4 4 4-4M10 13a18 18 0 0 1 4-6m36 0a18 18 0 0 1 4 6"/>'
-};
-const motionButton = document.querySelector('#motion');
-const reduced = matchMedia('(prefers-reduced-motion: reduce)');
-let paused = reduced.matches;
-function updateMotion(){ document.body.classList.toggle('motion-paused', paused); motionButton.setAttribute('aria-pressed', String(paused)); motionButton.setAttribute('aria-label', paused ? 'Resume animations' : 'Pause animations'); motionButton.querySelector('.motion-icon').innerHTML = paused ? motionIcons.play : motionIcons.pause; motionButton.querySelector('.motion-label').textContent = paused ? 'Resume motion' : 'Pause motion'; document.dispatchEvent(new Event('motionchange')); }
-motionButton.addEventListener('click', () => { paused = !paused; updateMotion(); });
-reduced.addEventListener('change', () => { paused = reduced.matches; updateMotion(); });
-updateMotion();
-let solarTimedOut=false,resolveSolar,solarController=null;
-const solarReady=new Promise(resolve=>{resolveSolar=resolve;});
-const destinations={
-mercury:{title:'Small beginnings.',label:'MERCURY / MISSION LOG',text:'Three projects, each a different experiment in useful software and hardware.',section:'work',action:'Explore the work'},
-venus:{title:'A different perspective.',label:'VENUS / CURIOSITY',text:'Meet the curious mind connecting intelligent software with the physical world.',section:'about',action:'Meet Joshua'},
-earth:{title:'The person behind the flight.',label:'EARTH / ABOUT ME',text:'Joshua Nathanael Tampubolon. Computer Engineering at BINUS, exploring AI, software and embedded systems.',section:'about',action:'Read my story'},
-mars:{title:'ESPION',label:'MARS / EMBEDDED SYSTEMS · IN DEVELOPMENT',text:'A modular ESP32-S3 experiment with a graphical interface. Explore the handheld concept and the work in progress.',project:'espion',action:'Open project'},
-jupiter:{title:'The systems behind the ideas.',label:'JUPITER / MY TOOLKIT',text:'Languages, interfaces, hybrid retrieval and embedded systems: the tools I use to build and learn.',section:'stack',action:'Explore my toolkit'},
-saturn:{title:'Sourcewell',label:'SATURN / AI KNOWLEDGE & SUPPORT',text:'Company documents become useful answers with inspectable sources and a path to human support.',project:'sourcewell',action:'Open project'},
-uranus:{title:'Open a channel.',label:'URANUS / LET’S CONNECT',text:'A project, an idea, or just a hello. Find me on LinkedIn and follow the work on GitHub.',section:'contact',action:'Let’s connect'},
-neptune:{title:'Velosync',label:'NEPTUNE / WORK IN PROGRESS',text:'Currently building an AI website assistant for Indonesian businesses, with a widget and management workspace.',project:'velosync',action:'Open project'}
-};
-function keepCameraClear(THREE,point,spheres){
-const p=point.clone();for(let pass=0;pass<12;pass++){let touched=false;for(const sphere of spheres){const delta=p.clone().sub(sphere.center),distance=delta.length();if(distance<sphere.radius+.02){if(distance<.0001)delta.set(0,1,0);else delta.divideScalar(distance);p.copy(sphere.center).addScaledVector(delta,sphere.radius+.03);touched=true;}}if(!touched)return p;}
-p.y=Math.max(p.y,...spheres.map(s=>s.center.y+s.radius+1));return p;
-}
-function safeNavigationCurve(THREE,from,to,spheres){
-const a=keepCameraClear(THREE,from,spheres),b=keepCameraClear(THREE,to,spheres);let curve;
-for(let attempt=0;attempt<5;attempt++){const altitude=Math.max(12,a.y,b.y)+6*Math.pow(2,attempt);curve=new THREE.CubicBezierCurve3(a,new THREE.Vector3(a.x,altitude,a.z),new THREE.Vector3(b.x,altitude,b.z),b);let safe=true;for(let i=0;i<=256&&safe;i++){const p=curve.getPoint(i/256);safe=spheres.every(s=>p.distanceTo(s.center)>=s.radius);}if(safe)return curve;}
-return curve;
-}
-async function sculpture(){
-const THREE=await import('./vendor/three.module.js');if(solarTimedOut)return;
-const host=document.querySelector('#sculpture'),canvas=document.querySelector('#scene'),mobile=matchMedia('(max-width:600px)').matches;
-const files=['earth_daymap','earth_nightmap','earth_clouds','mercury','venus_atmosphere','mars','jupiter','saturn','uranus','neptune','sun','moon','saturn_ring_alpha'];let loaded=0;
-const loader=new THREE.TextureLoader(),maps={};
-await Promise.all(files.map(async name=>{try{const texture=await loader.loadAsync(`assets/planets/2k_${name}.${name==='saturn_ring_alpha'?'png':'jpg'}`);if(solarTimedOut){texture.dispose();return;}if(mobile&&texture.image.width>1024){const c=document.createElement('canvas');c.width=1024;c.height=Math.max(1,Math.round(texture.image.height*1024/texture.image.width));c.getContext('2d').drawImage(texture.image,0,0,c.width,c.height);texture.image=c;texture.needsUpdate=true;}texture.colorSpace=name==='earth_clouds'?THREE.NoColorSpace:THREE.SRGBColorSpace;maps[name]=texture;loaded++;}catch(error){if(!['earth_nightmap','earth_clouds','saturn_ring_alpha'].includes(name))throw error;}finally{document.dispatchEvent(new CustomEvent('solarprogress',{detail:{loaded,total:files.length}}));}}));
-if(solarTimedOut){Object.values(maps).forEach(t=>t.dispose());return;}
-let renderer;try{renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'low-power'});}catch{Object.values(maps).forEach(t=>t.dispose());resolveSolar('fallback');return;}
-renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setClearColor(0x050810);renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;
-const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(43,1,.02,900),look=new THREE.Vector3();
-const geometry=new THREE.SphereGeometry(1,64,40),meshes={},specs=[['mercury',.8,3.7,2.6,.012],['venus',1.05,5.8,.7,.009],['earth',1.2,8.6,-.4,.007],['mars',.95,11.5,-2.25,.006],['jupiter',2.5,15.1,1.4,.004],['saturn',2.05,21,3.2,.003],['uranus',1.7,27,-.88,.002],['neptune',1.65,32,.6,.0015]];
-const light=new THREE.PointLight(0xfff5e8,64,0,1);scene.add(light);scene.add(new THREE.AmbientLight(0x7086a3,.085));
-const sun=new THREE.Mesh(geometry,new THREE.MeshBasicMaterial({map:maps.sun}));sun.scale.setScalar(2.65);sun.userData.world='sun';scene.add(sun);
-specs.forEach(([name,r])=>{const mat=new THREE.MeshStandardMaterial({map:maps[name==='earth'?'earth_daymap':name==='venus'?'venus_atmosphere':name],roughness:name==='earth'?.78:.98});if(name==='earth'&&maps.earth_nightmap){mat.emissiveMap=maps.earth_nightmap;mat.emissive.set(0xffffff);mat.emissiveIntensity=.35;}const mesh=new THREE.Mesh(geometry,mat);mesh.scale.setScalar(r);mesh.userData.world=name;meshes[name]=mesh;scene.add(mesh);});
-const earth=meshes.earth;earth.rotation.y=2.4;
-let clouds;if(maps.earth_clouds){clouds=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({alphaMap:maps.earth_clouds,color:0xeaf2ff,transparent:true,opacity:.68,depthWrite:false,roughness:1}));clouds.scale.setScalar(1.025);earth.add(clouds);}
-const atmosphere=new THREE.Mesh(geometry,new THREE.ShaderMaterial({vertexShader:'varying vec3 n;varying vec3 v;void main(){vec4 p=modelViewMatrix*vec4(position,1.);n=normalize(normalMatrix*normal);v=normalize(-p.xyz);gl_Position=projectionMatrix*p;}',fragmentShader:'varying vec3 n;varying vec3 v;void main(){float rim=pow(1.-abs(dot(normalize(n),normalize(v))),3.);gl_FragColor=vec4(.24,.57,1.,rim*.42);}',transparent:true,blending:THREE.AdditiveBlending,depthWrite:false}));atmosphere.scale.setScalar(1.045);earth.add(atmosphere);
-const moon=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({map:maps.moon,roughness:1}));moon.scale.setScalar(.25);scene.add(moon);
-const ringGeo=new THREE.RingGeometry(2.5,4.4,192);const pos=ringGeo.attributes.position,uv=ringGeo.attributes.uv;for(let i=0;i<pos.count;i++)uv.setXY(i,(Math.hypot(pos.getX(i),pos.getY(i))-2.5)/1.9,.5);
-const ring=new THREE.Mesh(ringGeo,new THREE.MeshStandardMaterial({map:maps.saturn_ring_alpha||null,color:0xc9baa0,transparent:true,opacity:.88,alphaTest:.06,depthWrite:false,side:THREE.DoubleSide,roughness:1}));ring.rotation.x=Math.PI/2-.36;ring.rotation.y=.12;meshes.saturn.add(ring);ring.scale.setScalar(1/2.05);
-const orbitMaterial=new THREE.LineBasicMaterial({color:0x607b9d,transparent:true,opacity:.21});specs.forEach(([, ,r])=>{const points=[];for(let i=0;i<=160;i++){const a=i/160*Math.PI*2;points.push(new THREE.Vector3(Math.cos(a)*r,0,Math.sin(a)*r));}scene.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(points),orbitMaterial));});
-const asteroidPositions=[];for(let i=0;i<180;i++){const a=i*2.399963,r=13.2+Math.sin(i*4.73)*.3;asteroidPositions.push(Math.cos(a)*r,Math.sin(i*7.17)*.13,Math.sin(a)*r);}const beltGeo=new THREE.BufferGeometry();beltGeo.setAttribute('position',new THREE.Float32BufferAttribute(asteroidPositions,3));scene.add(new THREE.Points(beltGeo,new THREE.PointsMaterial({size:.045,color:0xafa698,transparent:true,opacity:.6})));
-const starPositions=[];for(let i=0;i<620;i++){const a=i*2.399963,z=1-2*(i+.5)/620,r=160+Math.sin(i*7.3)*35;starPositions.push(Math.cos(a)*Math.sqrt(1-z*z)*r,z*r,Math.sin(a)*Math.sqrt(1-z*z)*r);}const starGeo=new THREE.BufferGeometry();starGeo.setAttribute('position',new THREE.Float32BufferAttribute(starPositions,3));scene.add(new THREE.Points(starGeo,new THREE.PointsMaterial({size:.15,color:0xc1d0e5,transparent:true,opacity:.72,toneMapped:false})));
-let intro=true,visible=true,lost=false,frame=0,last=0,time=0,orbitTime=0,selected=null,action=null,flightDone=null;const pointer={x:0,y:0},current={x:0,y:0};
-function updateWorlds(){specs.forEach(([name,,r,phase,speed])=>{const a=phase+orbitTime*speed;meshes[name].position.set(Math.cos(a)*r,0,Math.sin(a)*r);});moon.position.copy(earth.position).add(new THREE.Vector3(Math.cos(time*.13)*2.05,.25,Math.sin(time*.13)*2.05));}
-updateWorlds();
-function collisionBounds(){return[{center:new THREE.Vector3(),radius:3.4},...specs.map(([name,r])=>({center:meshes[name].position.clone(),radius:(name==='saturn'?4.4:name==='earth'?r*1.045:r)+.65})),{center:moon.position.clone(),radius:.75}];}
-function viewport(){return intro?{w:innerWidth,h:innerHeight}:{w:host.clientWidth,h:host.clientHeight};}
-function overview(){const {w,h}=viewport(),phone=w<700,aspect=w/h,fit=Math.min(phone?.55:.84,aspect*(phone?.94:.9)),distance=34/(Math.tan(THREE.MathUtils.degToRad(43)/2)*fit);return new THREE.Vector3(0,distance*.67,distance*.742);}
-function projection(){const {w,h}=viewport();renderer.setSize(w,h,false);camera.aspect=w/h;if(intro)camera.clearViewOffset();else camera.setViewOffset(w,h,w<700?(selected? w*.10:0):0,w<700?(selected?-h*.09:-h*.03):h*.035,w,h);camera.updateProjectionMatrix();}
-function mountIntro(){document.body.append(canvas);canvas.classList.add('solar-flight-canvas');projection();}
-function render(now){frame=0;const dt=last?Math.min((now-last)/1000,.05):0;last=now;if(!paused){time+=dt;if(!selected&&!intro)orbitTime+=dt;const damp=1-Math.exp(-dt*3);current.x+=(pointer.x-current.x)*damp;current.y+=(pointer.y-current.y)*damp;specs.forEach(([name])=>meshes[name].rotation.y+=dt*(name==='earth'?.035:.05));if(clouds)clouds.rotation.y+=dt*.01;}updateWorlds();
-if(action){action.elapsed+=dt;const p=Math.min(action.elapsed/action.duration,1),e=p*p*(3-2*p);if(action.curve){camera.position.copy(action.curve.getPointAt(e));look.copy(action.lookCurve.getPointAt(e));if(action.status)action.status(p<.32?'Leaving Earth orbit':p<.78?'Setting course through the solar system':'Select a world');}else{camera.position.lerpVectors(action.from,action.to,e);look.lerpVectors(action.lookFrom,action.lookTo,e);}if(p===1){const done=action.done;action=null;done?.();}}if(!intro&&!action&&!selected){camera.position.copy(overview()).add(new THREE.Vector3(current.x*1.3,current.y*.8,0));}camera.position.copy(keepCameraClear(THREE,camera.position,collisionBounds()));camera.lookAt(look);renderer.render(scene,camera);if(!lost&&!document.hidden&&(intro||visible)&&(!paused||action))frame=requestAnimationFrame(render);}
-function sync(){cancelAnimationFrame(frame);last=0;if(!lost&&!document.hidden&&(intro||visible))render(0);}
-function dock(){intro=false;selected=null;action=null;flightDone?.();flightDone=null;host.append(canvas);canvas.classList.remove('solar-flight-canvas');projection();camera.position.copy(overview());look.set(0,0,0);sync();}
-function focusWorld(name){if(name==='sun'){back();return;}selected=name;projection();const {w,h}=viewport(),target=meshes[name].position.clone(),radius=name==='saturn'?4.6:specs.find(s=>s[0]===name)[1]*(w<700?1.05:1.7),fit=Math.min(w<700?.36:.43,w/h*(w<700?.76:.48)),distance=radius/(Math.tan(THREE.MathUtils.degToRad(43)/2)*fit),sunFacing=target.clone().negate().normalize(),viewDirection=sunFacing.clone().applyAxisAngle(new THREE.Vector3(0,1,0),Math.PI*55/180).setY(.32).normalize(),to=target.clone().addScaledVector(viewDirection,distance);action={curve:safeNavigationCurve(THREE,camera.position,to,collisionBounds()),lookCurve:new THREE.LineCurve3(look.clone(),target),elapsed:0,duration:reduced.matches?.001:1.4};sync();}
-function back(){selected=null;projection();action={curve:safeNavigationCurve(THREE,camera.position,overview(),collisionBounds()),lookCurve:new THREE.LineCurve3(look.clone(),new THREE.Vector3()),elapsed:0,duration:reduced.matches?.001:1.5};sync();}
-solarController={select:focusWorld,overview:back,dock,launch:status=>new Promise(resolve=>{flightDone=resolve;const e=earth.position.clone(),end=overview();const points=[camera.position.clone(),e.clone().add(new THREE.Vector3(-2.4,2,4.0)),e.clone().add(new THREE.Vector3(-5,6,8)),new THREE.Vector3(-12,20,22),end.clone().multiplyScalar(.73),end];const targets=[e.clone(),e.clone(),e.clone().multiplyScalar(.7),new THREE.Vector3(),new THREE.Vector3(),new THREE.Vector3()];action={curve:new THREE.CatmullRomCurve3(points),lookCurve:new THREE.CatmullRomCurve3(targets),elapsed:0,duration:reduced.matches?.001:4.7,status,done:()=>{flightDone=null;resolve();}};sync();})};
-const raycaster=new THREE.Raycaster(),ndc=new THREE.Vector2();canvas.addEventListener('click',event=>{if(intro)return;const r=canvas.getBoundingClientRect();ndc.set((event.clientX-r.left)/r.width*2-1,-(event.clientY-r.top)/r.height*2+1);raycaster.setFromCamera(ndc,camera);const hit=raycaster.intersectObjects([sun,...Object.values(meshes)],false)[0];if(hit){if(hit.object.userData.world==='sun')resetSolar();else chooseWorld(hit.object.userData.world,true);}});
-host.addEventListener('pointermove',e=>{const r=host.getBoundingClientRect();pointer.x=(e.clientX-r.left)/r.width-.5;pointer.y=(e.clientY-r.top)/r.height-.5;});host.addEventListener('pointerleave',()=>{pointer.x=pointer.y=0;});
-const resize=()=>{projection();if(!intro&&!action){if(selected)focusWorld(selected);else camera.position.copy(overview());}sync();};const observer=new IntersectionObserver(([entry])=>{visible=entry.isIntersecting;sync();});observer.observe(host);const resizer=new ResizeObserver(resize);resizer.observe(host);window.addEventListener('resize',resize);document.addEventListener('motionchange',sync);document.addEventListener('visibilitychange',sync);canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();lost=true;cancelAnimationFrame(frame);host.classList.remove('has-webgl');resolveSolar('fallback');if(intro){solarController=null;canvas.classList.remove('solar-flight-canvas');host.append(canvas);document.dispatchEvent(new Event('solarcontextlost'));}});canvas.addEventListener('webglcontextrestored',()=>location.reload());window.addEventListener('pagehide',e=>{cancelAnimationFrame(frame);if(e.persisted)return;observer.disconnect();resizer.disconnect();scene.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});Object.values(maps).forEach(t=>t.dispose());renderer.dispose();});window.addEventListener('pageshow',e=>{if(e.persisted)sync();});
-intro=document.body.classList.contains('flight-active');if(intro){mountIntro();camera.position.copy(earth.position).add(new THREE.Vector3(-1.4,.8,3.0));look.copy(earth.position);}else{projection();camera.position.copy(overview());look.set(0,0,0);}host.classList.add('has-webgl');sync();resolveSolar('webgl');}
-sculpture().catch(error=>{solarTimedOut=true;solarController=null;console.error('Solar scene unavailable:',error);resolveSolar('fallback');});
-let activeWorld=null,committedWorld=null;
-function projectArtifact(project){const hero=document.querySelector('.hero');hero.querySelector('.planet-artifact')?.remove();hero.classList.toggle('has-artifact',Boolean(project));if(!project)return;const source=document.querySelector(`.project-visual[data-project="${project}"]`),visual=source?.querySelector('.screen-frame,.velo-window,.handheld');if(!visual)return;const artifact=document.createElement('div');artifact.className='planet-artifact artifact-'+project;artifact.setAttribute('aria-hidden','true');artifact.inert=true;artifact.append(visual.cloneNode(true));hero.append(artifact);}
-function chooseWorld(name,approach=false){const d=destinations[name];if(!d||(!approach&&committedWorld&&committedWorld!==name))return;if(approach)committedWorld=name;activeWorld=name;const preview=document.querySelector('#world-preview');preview.hidden=false;document.querySelector('#world-preview-label').textContent=d.label;document.querySelector('#world-preview-title').textContent=d.title;document.querySelector('#world-preview-text').textContent=d.text;document.querySelector('#world-preview-open').innerHTML=d.action+' '+strokeIcon('M7 17 17 7M7 7h10v10');document.querySelectorAll('[data-world]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.world===committedWorld)));if(approach){projectArtifact(d.project);document.querySelector('.hero').scrollIntoView({block:'start',behavior:paused||reduced.matches?'instant':'smooth'});document.querySelector('.hero').classList.add('solar-selected');solarController?.select(name);document.querySelector('#solar-status').textContent=name[0].toUpperCase()+name.slice(1)+' selected. '+d.text;document.querySelector('#world-preview-title').focus({preventScroll:true});}}
-function resetSolar(){activeWorld=null;committedWorld=null;projectArtifact(null);solarController?.overview();document.querySelector('.hero').classList.remove('solar-selected');document.querySelector('#world-preview').hidden=true;document.querySelectorAll('[data-world]').forEach(b=>b.setAttribute('aria-pressed','false'));document.querySelector('#solar-status').textContent='Solar system overview. Choose a world to explore.';}
-document.querySelectorAll('[data-world]').forEach(button=>{button.addEventListener('click',()=>chooseWorld(button.dataset.world,true));button.addEventListener('pointerenter',()=>chooseWorld(button.dataset.world));button.addEventListener('focus',()=>chooseWorld(button.dataset.world));});document.querySelector('#solar-back').addEventListener('click',resetSolar);document.querySelector('#world-preview-open').addEventListener('click',event=>{const d=destinations[activeWorld];if(!d)return;if(d.project)openProject(d.project,event.currentTarget);else{const section=document.querySelector('#'+d.section);section.scrollIntoView({behavior:paused||reduced.matches?'instant':'smooth'});const heading=section.querySelector('h2');heading.tabIndex=-1;heading.focus({preventScroll:true});}});
+import * as THREE from './vendor/three.module.js';
+import {buildFittedLiner,buildChestLiner,buildNeckLiner} from './liner.js';
+
+import { ASSEMBLIES,PROJECT_ASSEMBLY,advanceMotion,motionPending,assemblyOffset } from './motion.js';
 
 const projects = {
-sourcewell:{label:'01 / AI KNOWLEDGE & SUPPORT',title:'Sourcewell',lead:'Useful answers. Inspectable sources. A clearer path to human support.',detail:'<h3>The idea</h3><p>Help support teams answer questions from company documents, while keeping the source of each answer visible.</p><h3>What I’m building</h3><ul><li>Document ingestion and a searchable knowledge workspace.</li><li>Hybrid retrieval with Chroma, BM25, and reciprocal rank fusion.</li><li>Structured answers with inspectable citations and a path to human handoff.</li></ul><h3>Built with</h3><p>React · TypeScript · FastAPI · Chroma · BM25</p><h3>Project notes</h3><p>The project includes recorded examples, which are distinct from live AI responses. No live answer-quality benchmark has been run. The project preview is an actual interface image from the public repository.</p>',url:'https://github.com/Xeyzen7959/sourcewell'},
-velosync:{label:'02 / WORK IN PROGRESS',title:'Velosync',lead:'An AI website assistant for Indonesian businesses.',detail:'<h3>The idea</h3><p>Currently building Velosync: a website assistant for Indonesian agencies and businesses, with a customer-facing widget and a workspace for managing the experience.</p><h3>Current direction</h3><p>I’m shaping a public website, assistant widget, and workspace to help businesses manage customer conversations.</p><h3>Built with</h3><p>Next.js · TypeScript</p><h3>Project notes</h3><p>Work in progress. The preview is an original interface study created for this portfolio, not a screenshot or a claim about released functionality. The source repository is private.</p>'},
-espion:{label:'03 / EMBEDDED SYSTEMS · IN DEVELOPMENT',title:'ESPION',lead:'A small board. A whole world to explore.',detail:'<h3>The idea</h3><p>A modular ESP32-S3 firmware project with a graphical interface for educational hardware experimentation.</p><h3>Current direction</h3><p>Exploring how embedded software and a compact visual interface can make hardware experiments more approachable. I’m developing the interface and modular foundation, with additional hardware modules on the roadmap.</p><h3>Built with</h3><p>C++17 · Arduino Framework · PlatformIO · LovyanGFX · ESP32-S3</p><h3>Project notes</h3><p>The preview is an illustrative handheld prototype with a short antenna, four directional controls, and the project’s purple interface. It is a product concept, not a photograph of a finished device. The interface image was supplied for this portfolio; displayed menu items do not imply completed hardware modules. See the public repository for the current implementation.</p>',url:'https://github.com/Xeyzen7959/ESPION'}
+ sourcewell:{name:'Sourcewell',kind:'01 / AI KNOWLEDGE & SUPPORT',description:'AI support answers from company documents, with visible sources and a path to human support.',detail:'<h3>Purpose</h3><p>Help support teams answer questions from company documents while keeping the source of each answer visible.</p><h3>Features</h3><ul><li>Document ingestion and a searchable knowledge workspace.</li><li>Hybrid retrieval with Chroma, BM25 and reciprocal rank fusion.</li><li>Structured answers with inspectable citations and human handoff.</li></ul><h3>Built with</h3><p>React · TypeScript · FastAPI · Chroma · BM25</p><h3>Status & preview</h3><p>The project includes recorded examples, distinct from live AI responses. No live answer-quality benchmark has been run. The preview uses an actual interface image from the public repository.</p><a href="https://github.com/Xeyzen7959/sourcewell" target="_blank" rel="noopener noreferrer">Sourcewell repository</a>'},
+ velosync:{name:'Velosync',kind:'02 / WORK IN PROGRESS',description:'An AI website assistant for Indonesian agencies and businesses, with a customer-facing widget and management workspace.',detail:'<h3>Purpose</h3><p>A website assistant for Indonesian agencies and businesses, with a customer-facing widget and a workspace for managing the experience.</p><h3>Current direction</h3><p>A public website, assistant widget and workspace to help businesses manage customer conversations.</p><h3>Built with</h3><p>Next.js · TypeScript</p><h3>Status & preview</h3><p>Work in progress. The preview is an original interface study created for this portfolio, not a screenshot or a claim about released functionality. The source repository is private.</p>'},
+ espion:{name:'ESPION',kind:'03 / EMBEDDED SYSTEMS · IN DEVELOPMENT',description:'A modular ESP32-S3 firmware project with a graphical interface for educational hardware experimentation.',detail:'<h3>Purpose</h3><p>Make hardware experiments more approachable through embedded software and a compact graphical interface.</p><h3>Current direction</h3><p>Developing the interface and modular foundation, with additional hardware modules on the roadmap.</p><h3>Built with</h3><p>C++17 · Arduino Framework · PlatformIO · LovyanGFX · ESP32-S3</p><h3>Status & preview</h3><p>In development. The preview is an illustrative handheld product concept, not a photograph of a finished device. Its short antenna, directional controls and purple interface do not imply completed hardware modules. The interface image was supplied for this portfolio.</p><a href="https://github.com/Xeyzen7959/ESPION" target="_blank" rel="noopener noreferrer">ESPION repository</a>'}
 };
-const dialog=document.querySelector('#project-dialog');let opener;let focusContact=false;
-function closeProject(){dialog.close();}
-function openProject(key,trigger){
-const data=projects[key];opener=trigger;dialog.dataset.project=key;document.querySelector('#dialog-project-mark').innerHTML=`<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${projectMarks[key]}</svg>`;
-document.querySelector('#dialog-label').textContent=data.label;document.querySelector('#dialog-title').textContent=data.title;document.querySelector('#dialog-lead').textContent=data.lead;document.querySelector('#dialog-detail').innerHTML=data.detail;
-const detail=document.querySelector('#dialog-detail');let detailSection;[...detail.children].forEach(node=>{if(node.tagName==='H3'){detailSection=document.createElement('section');detailSection.className='detail-section';detail.append(detailSection);}detailSection?.append(node);});
-document.querySelector('#dialog-links').innerHTML=data.url?`<a href="${data.url}" target="_blank" rel="noopener noreferrer">View source on GitHub ${strokeIcon('M7 17 17 7M7 7h10v10')}</a>`:`<a href="#contact" id="discuss-project">Talk about the project ${strokeIcon('M7 17 17 7M7 7h10v10')}</a>`;
-dialog.showModal();document.body.classList.add('no-scroll');dialog.scrollTop=0;dialog.querySelector('.dialog-close').focus();
-dialog.querySelector('#discuss-project')?.addEventListener('click',()=>{focusContact=true;closeProject();});
+const summary=document.querySelector('#ribbon-summary');
+const ribbonDescriptions={sourcewell:'Exploring AI answers with visible sources.',velosync:'A website assistant for Indonesian businesses.',espion:'Embedded software for educational hardware experiments.'};
+let lastRibbon,selectedRibbonKey=null,openRibbonArmor=null,closeRibbonArmor=null;
+function closeRibbon(restoreFocus=true){selectedRibbonKey=null;summary.hidden=true;document.querySelectorAll('[data-ribbon]').forEach(b=>b.setAttribute('aria-expanded','false'));closeRibbonArmor?.();if(restoreFocus)lastRibbon?.focus({preventScroll:true});}
+document.querySelectorAll('[data-ribbon]').forEach(button=>button.addEventListener('click',event=>{event.preventDefault();const key=button.dataset.ribbon;selectedRibbonKey=key;lastRibbon=button;document.querySelector('#summary-title').textContent=projects[key].name;document.querySelector('#summary-description').textContent=ribbonDescriptions[key];document.querySelector('#summary-link').setAttribute('href','#case-study');document.querySelector('#summary-link').dataset.projectKey=key;document.querySelectorAll('[data-ribbon]').forEach(b=>b.setAttribute('aria-expanded',String(b===button)));summary.hidden=false;openRibbonArmor?.(key);summary.focus({preventScroll:true});}));
+document.querySelector('#summary-close').addEventListener('click',()=>closeRibbon());
+document.querySelector('#summary-link').addEventListener('click',()=>{if(selectedRibbonKey){lastCase=document.querySelector('#project-'+selectedRibbonKey);showCase(selectedRibbonKey,{scroll:false,focus:false});}closeRibbon(false);});
+const caseStudy=document.querySelector('#case-study');
+let lastCase;
+function caseAsset(name){return './assets/'+name;}
+function showCase(key,options={}){
+ const p=projects[key];document.querySelector('#case-title').textContent=p.name;document.querySelector('#case-kind').textContent=p.kind;document.querySelector('#case-description').textContent=p.description;document.querySelector('#dialog-detail').innerHTML=p.detail;
+ caseStudy.querySelectorAll('[data-case]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.case===key)));
+ const visual=document.querySelector('#case-visual');visual.replaceChildren();
+ if(key==='velosync'){
+  const widget=document.createElement('div');widget.className='widget-concept';widget.setAttribute('role','img');widget.setAttribute('aria-label','Velosync website assistant interface concept');widget.innerHTML='<div class="widget-top">velosync<span>WEBSITE ASSISTANT</span></div><div class="widget-message">Hi! How can I help you today?</div><div class="widget-reply">A website assistant for your business.</div><div class="widget-input">Ask a question…</div>';visual.append(widget);
+ }else{
+  const frame=document.createElement('div');frame.className=key==='sourcewell'?'browser-preview':'handheld-concept';const image=document.createElement('img');image.src=caseAsset(key==='sourcewell'?'sourcewell.png':'espion-ui.png');image.alt=key==='sourcewell'?'Sourcewell interface from the public project repository':'ESPION purple interface displayed in an illustrative handheld concept';image.addEventListener('error',()=>{image.hidden=true;const note=document.createElement('p');note.textContent='Preview unavailable. Project details remain available.';frame.append(note);});frame.append(image);
+  if(key==='espion'){const pad=document.createElement('span');pad.className='device-pad';pad.setAttribute('aria-hidden','true');frame.append(pad);}visual.append(frame);
+ }
+ document.querySelector('#case-caption').textContent=key==='sourcewell'?'Actual project interface image. Recorded examples are distinct from live AI responses.':key==='velosync'?'Original interface concept. Work in progress; this is not a live assistant.':'Illustrative handheld concept using the supplied interface image. Not a finished device.';
+ caseStudy.hidden=false;if(options.focus!==false)caseStudy.focus({preventScroll:true});if(options.scroll!==false)caseStudy.scrollIntoView({behavior:reducedMotion.matches?'auto':'smooth',block:'start'});
 }
-document.querySelectorAll('[data-project]').forEach(button=>button.addEventListener('click',()=>openProject(button.dataset.project,button)));
-dialog.querySelector('.dialog-close').addEventListener('click',closeProject);
-dialog.addEventListener('click',event=>{if(event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)closeProject();}});
-dialog.addEventListener('close',()=>{document.body.classList.remove('no-scroll');if(focusContact){document.querySelector('#contact-title').focus({preventScroll:true});focusContact=false;}else opener?.focus({preventScroll:true});});
+document.querySelectorAll('[data-case]').forEach(button=>button.addEventListener('click',()=>{if(!caseStudy.contains(button))lastCase=button;showCase(button.dataset.case);}));
+function closeCase(){caseStudy.hidden=true;lastCase?.focus({preventScroll:true});}
+caseStudy.querySelector('.case-close').addEventListener('click',closeCase);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!summary.hidden){e.preventDefault();closeRibbon();}else if(!caseStudy.hidden){e.preventDefault();closeCase();}}});
 
-// Lower-page entrances are progressive: content is visible until observers exist.
-if('IntersectionObserver' in window){
-const targets=document.querySelectorAll('.work .section-heading,.work .project,.stack .section-heading,.stack-layout,.about-label,.about-copy,.contact-top,.contact h2,.contact-bottom');
-const revealObserver=new IntersectionObserver(entries=>{entries.forEach(entry=>{if(entry.isIntersecting){entry.target.classList.remove('reveal-wait');revealObserver.unobserve(entry.target);}});},{threshold:.06});
-targets.forEach(target=>{target.classList.add('reveal-ready');if(!paused&&target.getBoundingClientRect().top>innerHeight){target.classList.add('reveal-wait');revealObserver.observe(target);}});
-document.addEventListener('motionchange',()=>{if(paused)targets.forEach(target=>{target.classList.remove('reveal-wait');revealObserver.unobserve(target);});});
-const art=document.querySelector('.stack-constellation');const artObserver=new IntersectionObserver(([entry])=>art.classList.toggle('art-offscreen',!entry.isIntersecting));artObserver.observe(art);
-document.addEventListener('visibilitychange',()=>document.body.classList.toggle('page-hidden',document.hidden));
-window.addEventListener('pagehide',event=>{if(!event.persisted){revealObserver.disconnect();artObserver.disconnect();}});
-}
-
-// The cockpit shares the actual Earth scene with the portfolio explorer.
-async function flightEntry(){
-if(window.flightBootExpired){solarTimedOut=true;return;}
-const deck=document.createElement('section');deck.className='flight-deck';deck.setAttribute('role','dialog');deck.setAttribute('aria-modal','true');deck.setAttribute('aria-labelledby','flight-title');deck.tabIndex=-1;
-deck.innerHTML=`<div class="flight-canopy" aria-hidden="true"><div class="flight-target"></div></div><div class="cockpit-frame frame-left" aria-hidden="true"></div><div class="cockpit-frame frame-right" aria-hidden="true"></div><div class="flight-hud"><span>JOSHUA / ORBITAL OBSERVATORY</span><span>EARTH ORBIT / DEPARTURE</span></div><div class="flight-copy"><span class="eyebrow">WELCOME ABOARD</span><h2 id="flight-title">Every journey<br>begins on Earth.</h2><p>A little curiosity. A whole universe of possibilities.</p><button id="flight-enter" disabled>Preparing flight…</button><p class="flight-status" aria-live="polite">Loading real planetary surfaces</p><button class="flight-light" hidden>Continue in light mode</button></div><p class="flight-phase" aria-live="polite"></p><div class="flight-instruments" aria-hidden="true"><span>DESTINATION<br><b>THE SOLAR SYSTEM</b></span><span>FLIGHT MODE<br><b>EXPLORATION</b></span><span>SYSTEM<br><b>JOSHUA / XEY​ZEN</b></span></div><button class="flight-skip" hidden>Skip launch ${strokeIcon('M7 17 17 7M7 7h10v10')}</button>`;
-const background=[...document.querySelectorAll('body>.skip,body>header,body>main,body>footer')];background.forEach(el=>el.inert=true);document.body.classList.add('flight-active');document.body.prepend(deck);clearTimeout(window.flightBootTimer);document.documentElement.classList.remove('flight-pending');deck.focus();let launched=false,finished=false,launchTimer;
-function finish(){if(finished)return;finished=true;clearTimeout(launchTimer);solarController?.dock();deck.remove();document.body.classList.remove('flight-active');background.forEach(el=>el.inert=false);document.querySelector('#solar-back').focus({preventScroll:true});}
-const enter=deck.querySelector('#flight-enter'),skip=deck.querySelector('.flight-skip'),light=deck.querySelector('.flight-light');skip.addEventListener('click',finish);deck.addEventListener('keydown',e=>{if(e.key==='Escape'&&launched)finish();if(e.key==='Tab'){const buttons=[...deck.querySelectorAll('button')].filter(b=>!b.hidden&&!b.disabled);if(!buttons.length){e.preventDefault();deck.focus();}else if(buttons.length===1){e.preventDefault();buttons[0].focus();}else{const first=buttons[0],last=buttons.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}}});
-document.addEventListener('solarcontextlost',()=>{deck.classList.remove('scene-ready');document.querySelector('.hero').classList.add('solar-light-mode');if(launched)finish();else{enter.disabled=false;enter.innerHTML='Enter light mode';deck.querySelector('.flight-status').textContent='Flight ready / light-mode solar navigation';}},{once:true});
-const phase=text=>{const p=deck.querySelector('.flight-phase');if(p.textContent!==text)p.textContent=text;};
-enter.addEventListener('click',()=>{if(launched)return;launched=true;deck.classList.add('is-launching');enter.hidden=true;light.hidden=true;skip.hidden=false;skip.focus();if(solarController)solarController.launch(phase).then(finish);else{phase('Select a world / light-mode navigation');launchTimer=setTimeout(finish,reduced.matches?160:900);}});
-const progress=event=>{deck.querySelector('.flight-status').textContent=`Preparing flight / ${event.detail.loaded} of ${event.detail.total} surfaces loaded`;};document.addEventListener('solarprogress',progress);
-const lightTimer=setTimeout(()=>{if(enter.disabled)light.hidden=false;},5000);light.addEventListener('click',()=>{solarTimedOut=true;solarController=null;resolveSolar('fallback');});
-let timeout;const mode=await Promise.race([solarReady,new Promise(resolve=>{timeout=setTimeout(()=>{solarTimedOut=true;solarController=null;document.querySelector('#sculpture').classList.remove('has-webgl');resolve('fallback');},18000);})]);clearTimeout(timeout);clearTimeout(lightTimer);document.removeEventListener('solarprogress',progress);if(finished)return;if(mode==='webgl')deck.classList.add('scene-ready');else document.querySelector('.hero').classList.add('solar-light-mode');enter.disabled=false;light.hidden=true;enter.innerHTML=`Click to enter ${strokeIcon('M7 17 17 7M7 7h10v10')}`;deck.querySelector('.flight-status').textContent=mode==='webgl'?'Flight ready / Earth departure cleared':'Flight ready / light-mode solar navigation';enter.focus();
-}
-flightEntry();
+const canvas = document.querySelector('#scene');
+const stage = document.querySelector('#stage');
+const armorButton = document.querySelector('#armor');
+const finishButton = document.querySelector('#finish');
+const resetButton = document.querySelector('#reset');
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+let failed = false;
+function showFallback() { failed=true; document.querySelector('#model-loading').hidden=true; document.querySelector('#fallback').hidden=false; canvas.hidden=true; armorButton.disabled=true; finishButton.disabled=true; resetButton.disabled=true; document.querySelector('#view').disabled=true; }
+try {
+  const renderer = new THREE.WebGLRenderer({canvas, alpha:true, antialias:true, powerPreference:'high-performance'});
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.6));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.45;
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(34, 1, .1, 80);
+  camera.position.set(0, -.25, 8.7);
+  const environmentCanvas = document.createElement('canvas');
+  environmentCanvas.width=2048; environmentCanvas.height=1024;
+  const ec=environmentCanvas.getContext('2d');
+  ec.fillStyle='#18191c'; ec.fillRect(0,0,2048,1024);
+  const strip=(x,y,w,h,color) => {ec.fillStyle=color;ec.fillRect(x,y,w,h);};
+  strip(70,100,220,760,'#e7f2ff');strip(380,210,65,500,'#ffffff');strip(680,40,500,130,'#f8f4e8');strip(1360,80,135,850,'#ffffff');strip(1650,260,240,390,'#6a6d79');strip(0,850,2048,170,'#3d3e43');strip(1550,250,24,620,'#ff78ac');
+  const environmentTexture = new THREE.CanvasTexture(environmentCanvas);
+  environmentTexture.mapping=THREE.EquirectangularReflectionMapping;
+  environmentTexture.colorSpace=THREE.SRGBColorSpace;
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment=pmrem.fromEquirectangular(environmentTexture).texture;
+  pmrem.dispose();environmentTexture.dispose();
+  scene.add(new THREE.HemisphereLight(0xd8e3ff,0x222027,2.1));
+  function area(color,intensity,x,y,z){ const l=new THREE.DirectionalLight(color,intensity);l.position.set(x,y,z);scene.add(l); }
+  area(0xffffff,4,-4,6,6);area(0x77e7ff,2.2,4,1,3);area(0xff58a4,2.1,-4,-1,-3);area(0xffffff,3,0,6,-3);
+  const chrome = new THREE.MeshPhysicalMaterial({color:0xe4e6e9,metalness:1,roughness:.18,clearcoat:1,clearcoatRoughness:.12});
+  const darkChrome = new THREE.MeshStandardMaterial({color:0x42464c,metalness:1,roughness:.3});
+  const black = new THREE.MeshStandardMaterial({color:0x111216,metalness:.7,roughness:.44});
+  const rubber = new THREE.MeshStandardMaterial({color:0x18181b,metalness:.1,roughness:.85});
+  const pink = new THREE.MeshStandardMaterial({color:0xff4794,metalness:.4,roughness:.32});
+  const acid = new THREE.MeshStandardMaterial({color:0xe8ff35,metalness:.3,roughness:.3});
+  const cyan = new THREE.MeshStandardMaterial({color:0x7ce8ed,metalness:.3,roughness:.3});
+  const eyeMat = new THREE.MeshStandardMaterial({color:0xdfff70,emissive:0xb8ff2c,emissiveIntensity:2,metalness:.3,roughness:.2});
+  const head=new THREE.Group();scene.add(head);head.rotation.set(0,-.24,0);
+  const [manifest,binary]=await Promise.all([fetch('./assets/mutant.json').then(r=>{if(!r.ok)throw Error('Model metadata unavailable');return r.json();}),fetch('./assets/mutant.bin').then(r=>{if(!r.ok)throw Error('Model geometry unavailable');return r.arrayBuffer();})]);
+  const tl=new THREE.TextureLoader();
+  const [colorMap,normalMap,roughMap,metalMap]=await Promise.all(['diffuse','normal','roughness','metalness'].map(n=>tl.loadAsync('./assets/'+n+'.webp')));
+  colorMap.colorSpace=THREE.SRGBColorSpace;
+  const originalMaterial=new THREE.MeshStandardMaterial({map:colorMap,normalMap,roughnessMap:roughMap,metalnessMap:metalMap,metalness:1,roughness:.85});
+  const originalTorsoMaterial=originalMaterial.clone();originalTorsoMaterial.side=THREE.DoubleSide;
+  const paintMeshes=[],parts=new Map(),assemblies={};
+  // Paint changes only: the supplied positions, normals and topology remain intact.
+  function sprayFinish(material) {
+    material.onBeforeCompile = shader => {
+      shader.vertexShader = 'varying vec3 vPaintPosition;\n' + shader.vertexShader;
+      shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvPaintPosition = position;');
+      shader.fragmentShader = `varying vec3 vPaintPosition;
+float paintNoise(vec3 p) { return fract(sin(dot(p, vec3(12.9898,78.233,37.719))) * 43758.5453); }
+` + shader.fragmentShader;
+      shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+vec3 pp = vPaintPosition;
+float grain = paintNoise(floor(pp * 160.0));
+float first = abs(pp.y - .45 * pp.x - 2.65);
+float second = abs(pp.y + .65 * pp.x + .72);
+float third = abs(pp.y - .24 * pp.x + 1.42);
+float haze = (1.0 - smoothstep(.08,.43,first)) * (.27 + .5 * grain);
+float flecks = step(.977,grain) * (1.0 - smoothstep(.25,.8,first));
+diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.9,.035,.3), clamp(haze + flecks*.6,0.0,.8));
+float yellowPaint = (1.0-smoothstep(.025,.16,second)) * step(.15,grain) * .65;
+diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.82,.95,.1), yellowPaint);
+float cyanPaint = (1.0-smoothstep(.02,.13,third)) * (.25+.4*grain);
+diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.06,.67,.73), cyanPaint);
+float headMark = (1.0-smoothstep(.035,.25,abs(pp.y-.4*pp.x-3.12))) * (.3+.45*grain);
+diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.82,.95,.1), headMark);
+float darkWear = (1.0-smoothstep(.06,.3,abs(pp.y+.2*pp.x-2.28))) * grain*.65;
+diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.025,.026,.03), darkWear);
+`);
+    };
+    material.customProgramCacheKey = () => 'spray-finish-v1';
+    return material;
+  }
+  const pinkArmor=new THREE.MeshPhysicalMaterial({map:colorMap,color:0xff70b0,normalMap,metalness:.72,roughness:.28,clearcoat:1});
+  const acidArmor=new THREE.MeshPhysicalMaterial({map:colorMap,color:0xeaff58,normalMap,metalness:.6,roughness:.32,clearcoat:1});
+  const cyanArmor=new THREE.MeshPhysicalMaterial({map:colorMap,color:0x75e8ed,normalMap,metalness:.7,roughness:.3,clearcoat:1});
+  const chromeDetail=new THREE.MeshPhysicalMaterial({color:0xe5e8ea,normalMap,metalness:1,roughness:.22,clearcoat:1});
+  for(const part of manifest.parts){
+    const data=new Float32Array(binary,part.data.offset,part.data.bytes/4);
+    const geo=new THREE.BufferGeometry(),interleaved=new THREE.InterleavedBuffer(data,8);
+    geo.setAttribute('position',new THREE.InterleavedBufferAttribute(interleaved,3,0));geo.setAttribute('normal',new THREE.InterleavedBufferAttribute(interleaved,3,3));geo.setAttribute('uv',new THREE.InterleavedBufferAttribute(interleaved,2,6));geo.setIndex(new THREE.BufferAttribute(new Uint32Array(binary,part.index.offset,part.index.bytes/4),1));geo.computeBoundingBox();geo.computeBoundingSphere();
+    let material=part.id===100755?originalTorsoMaterial:originalMaterial;if(part.id===78253)material=pinkArmor;if(part.id===145998)material=acidArmor;if(part.id===163069)material=cyanArmor;if([80978,14122,174677,180996].includes(part.id))material=chromeDetail;
+    if([78253,14122,145998,163069].includes(part.id)){material=sprayFinish(material.clone());}
+    const m=new THREE.Mesh(geo,material);m.name='original_component_'+part.id;head.add(m);parts.set(part.id,m);paintMeshes.push({mesh:m,paint:material});
+  }
+  head.scale.setScalar(.5);head.position.set(0,-.4075,.277);
+  for(const [key,config] of Object.entries(ASSEMBLIES)){assemblies[key]=config.ids.map(id=>{const m=parts.get(id);return {mesh:m,base:m.position.clone()};});}
+  const wireTextures=await Promise.all(['basecolor','normal','roughness','metallic'].map(n=>tl.loadAsync('./assets/wires-'+n+'.webp')));
+  wireTextures.forEach(t=>{t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(2,5);});wireTextures[0].colorSpace=THREE.SRGBColorSpace;
+  const coreWireMaps=wireTextures.slice(0,4).map(t=>{const clone=t.clone();clone.repeat.set(1.2,1.5);clone.needsUpdate=true;return clone;});
+  const exposedCoreMaterial=new THREE.MeshStandardMaterial({map:coreWireMaps[0],normalMap:coreWireMaps[1],roughnessMap:coreWireMaps[2],metalnessMap:coreWireMaps[3],metalness:.75,roughness:.7,normalScale:new THREE.Vector2(1.3,1.3),side:THREE.DoubleSide});
+  for(const id of [180996,174677]){const core=parts.get(id);core.geometry=core.geometry.clone();core.geometry.computeBoundingBox();const box=core.geometry.boundingBox,pos=core.geometry.attributes.position,uv=new Float32Array(pos.count*2);for(let i=0;i<pos.count;i++){uv[i*2]=(pos.getX(i)-box.min.x)/(box.max.x-box.min.x);uv[i*2+1]=(pos.getY(i)-box.min.y)/(box.max.y-box.min.y);}core.geometry.setAttribute('uv',new THREE.BufferAttribute(uv,2));core.material=exposedCoreMaterial;paintMeshes.find(p=>p.mesh===core).paint=exposedCoreMaterial;}
+  const fittedLiner=buildFittedLiner(parts.get(78253).geometry,exposedCoreMaterial,parts.get(180996).geometry);head.add(fittedLiner);const chestLiner=buildChestLiner(parts.get(14122).geometry,exposedCoreMaterial);head.add(chestLiner);const neckLiner=buildNeckLiner(parts.get(80842).geometry,parts.get(80978).geometry,exposedCoreMaterial);head.add(neckLiner);
+  document.querySelector('#model-loading').hidden=true;
+  const motion={current:null,target:null,progress:0};
+  const pointer=new THREE.Vector2();let targetRotation=-.24,targetTilt=0,chromeOnly=false,dragging=false,startX=0,startY=0,startRotation=0,dragDistance=0,visible=true;
+  function updateArmorButton(){const open=motion.target!==null;armorButton.setAttribute('aria-pressed',String(open));armorButton.innerHTML=`<span>${open?'−':'＋'}</span> ${open?'CLOSE':'INSPECT'} ARMOR`;}
+  function closeArmor(){motion.target=null;selectedRibbonKey=null;summary.hidden=true;document.querySelectorAll('[data-ribbon]').forEach(b=>b.setAttribute('aria-expanded','false'));updateArmorButton();requestRender();}
+  function inspectArmor(key='shell'){motion.target=key;updateArmorButton();requestRender();}
+  openRibbonArmor=key=>inspectArmor(PROJECT_ASSEMBLY[key]);closeRibbonArmor=closeArmor;
+  queueMicrotask(()=>{if(!summary.hidden&&selectedRibbonKey)openRibbonArmor(selectedRibbonKey);});
+  armorButton.addEventListener('click',()=>{if(motion.target){closeArmor();}else inspectArmor();});
+  finishButton.addEventListener('click',()=>{chromeOnly=!chromeOnly;paintMeshes.forEach(p=>{p.mesh.material=chromeOnly?chromeDetail:p.paint;});if(chromeOnly){const torsoChrome=chromeDetail.clone();torsoChrome.side=THREE.DoubleSide;parts.get(100755).material=torsoChrome;}finishButton.setAttribute('aria-pressed',String(chromeOnly));requestRender();});
+  const viewButton=document.querySelector('#view');let backView=false;viewButton.addEventListener('click',()=>{backView=!backView;targetRotation=backView?Math.PI-.24:-.24;viewButton.textContent=backView?'VIEW FRONT':'VIEW BACK';viewButton.setAttribute('aria-pressed',String(backView));requestRender();});
+  resetButton.addEventListener('click',()=>{targetRotation=-.24;targetTilt=0;pointer.set(0,0);backView=false;viewButton.textContent='VIEW BACK';viewButton.setAttribute('aria-pressed','false');closeArmor();});
+  canvas.addEventListener('pointerdown',e=>{dragging=true;startX=e.clientX;startY=e.clientY;startRotation=targetRotation;dragDistance=0;canvas.setPointerCapture(e.pointerId);});
+  canvas.addEventListener('pointermove',e=>{const r=canvas.getBoundingClientRect();pointer.set((e.clientX-r.left)/r.width*2-1,-((e.clientY-r.top)/r.height*2-1));if(dragging){dragDistance=Math.hypot(e.clientX-startX,e.clientY-startY);targetRotation=startRotation+(e.clientX-startX)*.008;}requestRender();});
+  canvas.addEventListener('pointerup',e=>{dragging=false;if(canvas.hasPointerCapture(e.pointerId))canvas.releasePointerCapture(e.pointerId);});
+  canvas.addEventListener('pointercancel',()=>dragging=false);
+  canvas.addEventListener('pointerleave',()=>{if(!dragging){pointer.set(0,0);requestRender();}});
+  canvas.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' '].includes(e.key)){e.preventDefault();if(e.key==='ArrowLeft')targetRotation-=.18;if(e.key==='ArrowRight')targetRotation+=.18;if(e.key==='ArrowUp')targetTilt=Math.max(-.4,targetTilt-.1);if(e.key==='ArrowDown')targetTilt=Math.min(.4,targetTilt+.1);if(e.key===' '){if(motion.target){closeArmor();}else inspectArmor();}requestRender();}});
+  canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();showFallback();});
+  let frame=0,settleFrames=0,lastTime=0;
+  function requestRender(){settleFrames=70;if(!frame&&visible&&!failed)frame=requestAnimationFrame(render);}
+  function render(time){const dt=lastTime?Math.min((time-lastTime)/1000,.04):.016;lastTime=time;frame=0;if(failed||!visible)return;const ease=reducedMotion.matches?1:.12;
+    head.rotation.y+=(targetRotation-head.rotation.y)*ease;head.rotation.z+=(targetTilt-head.rotation.z)*ease;head.rotation.x+=(.04+pointer.y*.045-head.rotation.x)*ease;
+    advanceMotion(motion,dt,reducedMotion.matches);
+    for(const [key,items] of Object.entries(assemblies)){for(const {mesh:m,base} of items){const id=Number(m.name.replace('original_component_',''));const offset=key===motion.current?assemblyOffset(motion.progress,key,id):[0,0,0];m.position.copy(base).add(new THREE.Vector3(...offset));}}
+    const framing=ASSEMBLIES[motion.current]||ASSEMBLIES.shell;
+    camera.position.z=8.7+(framing.cameraZ-8.7)*motion.progress;camera.position.y=-.25+framing.cameraY*motion.progress;
+    renderer.render(scene,camera);if(--settleFrames>0||motionPending(motion))frame=requestAnimationFrame(render);
+  }
+  function resize(){const w=stage.clientWidth,h=stage.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();requestRender();}
+  new ResizeObserver(resize).observe(stage);resize();
+  new IntersectionObserver(entries=>{visible=entries[0].isIntersecting&&!document.hidden;if(visible)requestRender();},{threshold:0}).observe(stage);
+  document.addEventListener('visibilitychange',()=>{visible=!document.hidden&&stage.getBoundingClientRect().bottom>0;if(visible)requestRender();});
+  reducedMotion.addEventListener('change',requestRender);
+  window.__xeyzen = { scene,head,renderer,camera,parts,assemblies,fittedLiner,chestLiner,neckLiner,get open(){return motion.target!==null;},get chrome(){return chromeOnly;},get progress(){return motion.progress;} };
+} catch(error) { console.error('3D could not initialize:',error); showFallback(); }
