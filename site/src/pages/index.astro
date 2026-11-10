@@ -1,0 +1,504 @@
+---
+import { getCollection, render } from "astro:content";
+import "../styles/site.css";
+
+const asset = (path: string) => import.meta.env.BASE_URL + path;
+const projects = await getCollection("projects");
+const work = await Promise.all(
+  projects.sort((left, right) => left.data.order - right.data.order).map(async (project) => ({
+    id: project.id,
+    ...project.data,
+    Content: (await render(project)).Content,
+  })),
+);
+const gallery = work.filter(({ image }) => image).slice(0, 4);
+const name = "Joshua Nathanael Tampubolon";
+const title = name + " · XEYZEN";
+const description = "Computer engineering student at BINUS building across AI, software, and hardware.";
+const page = new URL(import.meta.env.BASE_URL, Astro.site);
+const socialImage = new URL(asset("social-preview.png"), Astro.site);
+const linkedIn = "https://www.linkedin.com/in/joshua-nathanael-tampubolon-09a37a3b2/";
+const email = "joshuatamp1007@gmail.com";
+const profiles = [
+  { name: "LinkedIn", href: linkedIn },
+  { name: "GitHub", href: "https://github.com/Xeyzen7959" },
+  { name: "Instagram", href: "https://www.instagram.com/joshhsua/" },
+];
+const nameWords = name.split(" ").map((word, wordIndex, words) => ({
+  word,
+  offset: words.slice(0, wordIndex).join("").length,
+}));
+const skills = [
+  { title: "AI & retrieval", tools: ["Python", "FastAPI", "Chroma", "BM25"], projects: [{ title: "Sourcewell", id: "sourcewell" }] },
+  { title: "Web & interfaces", tools: ["TypeScript", "JavaScript", "React", "Next.js"], projects: [
+    { title: "Morrow Studio CRM", id: "morrow" }, { title: "Velosync", id: "velosync" }, { title: "RelayDesk", id: "relaydesk" },
+  ] },
+  { title: "Embedded systems", tools: ["C++", "ESP32-S3", "Arduino", "PlatformIO", "LovyanGFX"], projects: [
+    { title: "ESPION", id: "espion" }, { title: "SerialScope", id: "serialscope" }, { title: "AI Attendance", id: "ai-attendance" },
+  ] },
+];
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#292822" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={page.href} />
+    <link rel="icon" type="image/svg+xml" href={asset("favicon.svg")} />
+    <link rel="preload" href={asset("fonts/space-grotesk.woff2")} as="font" type="font/woff2" crossorigin="anonymous" />
+    <link rel="preload" href={asset("media/background-poster.webp")} as="image" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={page.href} />
+    <meta property="og:image" content={socialImage.href} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="XEYZEN wordmark and Joshua Nathanael Tampubolon’s name on warm glass." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={socialImage.href} />
+  </head>
+  <body>
+    <div class="backdrop" aria-hidden="true">
+      <img src={asset("media/background-poster.webp")} width="960" height="540" fetchpriority="high" alt="" />
+      <video
+        id="background-video"
+        data-src={asset("media/background.mp4")}
+        loop
+        muted
+        playsinline
+        preload="none"
+        tabindex="-1"
+      ></video>
+    </div>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="masthead">
+      <nav class="glass nav" aria-label="Main navigation">
+        <a class="wordmark" href="#home" aria-label="XEYZEN, back to top">
+          <span class="mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none"><path d="m5 5 14 14M19 5 5 19" stroke="currentColor" stroke-width="2.7" stroke-linecap="round"/></svg>
+          </span>
+          <span>XEYZEN</span>
+        </a>
+        <ul class="nav-links">
+          <li><a href="#about" aria-current="location">About</a></li>
+          <li><a href="#skills">Skills</a></li>
+          <li><a href="#projects">Work</a></li>
+          <li><a href="#path">Path</a></li>
+          <li><a href="#contact">Contact</a></li>
+        </ul>
+        <button class="motion-toggle" type="button" id="motion-toggle" aria-label="Play background video" title="Play background video" hidden>
+          <svg class="pause-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M7 5v10m6-10v10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <svg class="play-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m7 5 8 5-8 5z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+        </button>
+      </nav>
+    </header>
+
+    <main class="shell" id="main">
+      <section class="glass hero" id="home" aria-labelledby="name" tabindex="-1">
+        <span class="hero-sheen" aria-hidden="true"></span>
+        <div class="hero-story">
+          <div class="hero-topline">
+            <p class="eyebrow"><span class="identity-dot" aria-hidden="true"></span> Computer Engineering · BINUS</p>
+          </div>
+          <h1 id="name">
+            <span class="sr-only">{name}</span>
+            <span class="visual-name" aria-hidden="true">{nameWords.map(({ word, offset }, wordIndex) => (
+              <>{wordIndex > 0 && " "}<span class="name-word">{Array.from(word).map((letter, letterIndex) => (
+                <span class="name-letter" style={{ "--index": offset + letterIndex }}>{letter}</span>
+              ))}</span></>
+            ))}</span>
+          </h1>
+          <div class="hero-bottom">
+            <p class="hero-copy">I’m a Computer Engineering student at BINUS. I build across AI, software, and hardware.</p>
+            <a class="button button-primary" href="#projects">View projects <span aria-hidden="true">↓</span></a>
+          </div>
+        </div>
+        <div class="hero-gallery" role="group" aria-labelledby="hero-gallery-title">
+          <p class="hero-index" id="hero-gallery-title">Featured work <span>{String(gallery.length).padStart(2, "0")}</span></p>
+          <ul class="gallery-grid" role="list">
+            {gallery.map((project, index) => (
+              <li style={{ "--gallery-order": index }}>
+                <a class="gallery-card" href={"#" + project.id}>
+                  <span class="gallery-image">
+                    <img
+                      src={asset("media/" + project.image)}
+                      alt=""
+                      width={project.imageWidth}
+                      height={project.imageHeight}
+                      decoding="async"
+                    />
+                  </span>
+                  <span class="gallery-label">
+                    <span>{project.title}</span>
+                    <span aria-hidden="true">↘</span>
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <section class="folio-section about-section" id="about" aria-labelledby="about-heading" tabindex="-1">
+        <header class="section-heading glass" data-reveal>
+          <p class="eyebrow">01 / About</p>
+          <h2 id="about-heading">Behind the work.</h2>
+        </header>
+        <div class="glass about-grid" data-reveal>
+          <article class="well about-panel">
+            <p class="eyebrow">Background</p>
+            <h3>From software to hardware.</h3>
+            <p>I’m working toward becoming an AI engineer and software developer. My projects range from a document knowledge workspace to firmware for an ESP32-S3.</p>
+          </article>
+          <article class="well about-panel">
+            <p class="eyebrow">Approach</p>
+            <h3>Make the system easier to understand.</h3>
+            <p>In Sourcewell, that means showing the evidence behind an answer. In ESPION, it means giving hardware experiments an interface you can navigate.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="folio-section" id="skills" aria-labelledby="skills-heading" tabindex="-1">
+        <header class="section-heading glass" data-reveal>
+          <p class="eyebrow">02 / Skills</p>
+          <h2 id="skills-heading">Tools I build with.</h2>
+        </header>
+        <div class="glass skill-index" data-reveal>
+          {skills.map((skill, index) => (
+            <details class="well skill-row" open={index === 0}>
+              <summary>
+                <span class="skill-number" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
+                <span class="skill-name">{skill.title}</span>
+                <span class="skill-toggle" aria-hidden="true"></span>
+              </summary>
+              <div class="skill-content">
+                <ul class="tag-list" aria-label="Tools">{skill.tools.map((tool) => <li>{tool}</li>)}</ul>
+                <div class="skill-projects">
+                  <span class="eyebrow">In practice</span>
+                  {skill.projects.map((project) => <a href={"#" + project.id}>{project.title} <span aria-hidden="true">↘</span></a>)}
+                </div>
+              </div>
+            </details>
+          ))}
+        </div>
+      </section>
+
+      <section class="projects" id="projects" aria-labelledby="projects-heading" tabindex="-1">
+        <header class="work-header" data-reveal>
+          <div class="section-heading glass">
+            <p class="eyebrow">03 / Work</p>
+            <h2 id="projects-heading">Selected projects.</h2>
+          </div>
+          <div class="glass work-tools">
+            <span class="work-count" id="work-count" aria-live="polite">{work.length} projects</span>
+            <div class="work-filters" aria-label="Filter projects" role="group" hidden>
+              <button type="button" data-filter="all" aria-pressed="true">All</button>
+              <button type="button" data-filter="software" aria-pressed="false">Software</button>
+              <button type="button" data-filter="embedded" aria-pressed="false">Embedded</button>
+            </div>
+          </div>
+        </header>
+        <div class="projects-grid">
+          {work.map(({ Content, ...project }, index) => (
+            <article id={project.id} class:list={["glass", "project", { "project-featured": index === 0, "project-text-first": !project.image }]} data-project={project.group} data-reveal tabindex="-1">
+              {project.image && <figure class="project-image well">
+                <a class="project-screenshot" href={asset("media/" + project.image)} aria-label={"Open full screenshot of " + project.title}>
+                  <img
+                    src={asset("media/" + project.image)}
+                    alt={project.imageAlt}
+                    width={project.imageWidth}
+                    height={project.imageHeight}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </a>
+              </figure>}
+              <div class="project-copy well">
+                <div class="project-meta">
+                  <p class="eyebrow">{String(project.order).padStart(2, "0")} / {project.category}</p>
+                  {project.status && <span class="status">{project.status}</span>}
+                </div>
+                <h3>{project.title}</h3>
+                <div class="project-description"><Content /></div>
+                {project.repo && <a class="text-link" href={project.repo} aria-label={"View " + project.title + " repository"}>View repository <span aria-hidden="true">↗</span></a>}
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section class="folio-section path-section" id="path" aria-labelledby="path-heading" tabindex="-1">
+        <header class="section-heading glass" data-reveal>
+          <p class="eyebrow">04 / Path</p>
+          <h2 id="path-heading">Study & involvement.</h2>
+        </header>
+        <ol class="glass path-list" aria-label="Education and involvement" data-reveal>
+          <li class="well path-item">
+            <p class="eyebrow">Education</p>
+            <div><h3>Computer Engineering</h3><p>BINUS University</p></div>
+          </li>
+          <li class="well path-item">
+            <p class="eyebrow">Education</p>
+            <div><h3>Sekolah Citra Kasih Don Bosco Pondok Indah</h3><p>High school</p></div>
+          </li>
+          <li class="well path-item">
+            <p class="eyebrow">Committee</p>
+            <div>
+              <h3>HUMAS · PKM: Reachout</h3>
+              <p>Reachout is a Pengabdian kepada Masyarakat (PkM), a community service initiative by HIMTEK, the Computer Engineering student association at BINUS University. I served on the public relations (HUMAS) committee.</p>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <section class="glass contact" id="contact" aria-labelledby="contact-heading" tabindex="-1" data-reveal>
+        <svg class="contact-rim" viewBox="0 0 1000 92" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="rim-wash" x2="0" y2="100%">
+              <stop offset="0" stop-color="#fff" stop-opacity=".66"/>
+              <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+            </linearGradient>
+            <linearGradient id="rim-light">
+              <stop offset="0" stop-color="#fff" stop-opacity=".2"/>
+              <stop offset=".29" stop-color="#fff" stop-opacity=".95"/>
+              <stop offset=".56" stop-color="#fff" stop-opacity=".32"/>
+              <stop offset=".83" stop-color="#fff" stop-opacity=".84"/>
+              <stop offset="1" stop-color="#fff" stop-opacity=".2"/>
+            </linearGradient>
+          </defs>
+          <path d="M0 48C14 15 30 7 65 8C237 12 360 4 515 8S757 20 924 8C964 5 986 14 1000 48V92H0Z" fill="url(#rim-wash)"/>
+          <path d="M0 48C14 15 30 7 65 8C237 12 360 4 515 8S757 20 924 8C964 5 986 14 1000 48" fill="none" stroke="url(#rim-light)" stroke-width="2" vector-effect="non-scaling-stroke"/>
+          <path d="M0 55C14 22 30 14 65 15C237 19 360 11 515 15S757 27 924 15C964 12 986 21 1000 55" fill="none" stroke="#705538" stroke-opacity=".14" vector-effect="non-scaling-stroke"/>
+        </svg>
+        <div class="contact-intro well">
+          <p class="eyebrow">05 / Contact</p>
+          <h2 id="contact-heading">Let’s talk.</h2>
+          <p>Have a project, opportunity, or idea in mind? I’d like to hear from you.</p>
+          <a class="button button-primary" href={"mailto:" + email}>{email} <span aria-hidden="true">↗</span></a>
+        </div>
+        <div class="profile-block well">
+          <p class="eyebrow">Find me online</p>
+          <ul class="social">
+            {profiles.map(({ name, href }) => (
+              <li><a href={href}>{name}<span aria-hidden="true">↗</span></a></li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    </main>
+    <footer class="page-footer">
+      <p>Joshua Nathanael Tampubolon</p>
+      <a href="#home">Back to top <span aria-hidden="true">↑</span></a>
+    </footer>
+
+    <script>
+      import { startProjectDrift } from "../scripts/project-drift";
+
+      const motion = matchMedia("(prefers-reduced-motion: reduce)");
+      startProjectDrift(motion);
+      const video = document.querySelector<HTMLVideoElement>("#background-video");
+      const button = document.querySelector<HTMLButtonElement>("#motion-toggle");
+      if (video && button) {
+        const backdropVideo = video;
+        const toggle = button;
+        const connection = (navigator as Navigator & {connection?: {saveData?: boolean}}).connection;
+        let wantsPlayback = !connection?.saveData;
+
+        function syncButton() {
+          const playing = !backdropVideo.paused;
+          const label = playing ? "Pause background video" : "Play background video";
+          toggle.dataset.playing = String(playing);
+          toggle.setAttribute("aria-label", label);
+          toggle.title = label;
+        }
+
+        function playBackground() {
+          if (motion.matches || document.hidden || !wantsPlayback) return;
+          const source = backdropVideo.dataset.src;
+          if (!source) return;
+          if (!backdropVideo.hasAttribute("src")) backdropVideo.src = source;
+          backdropVideo.muted = true;
+          void backdropVideo.play().catch(syncButton);
+        }
+
+        function updateMotion() {
+          toggle.hidden = motion.matches;
+          if (motion.matches) {
+            backdropVideo.pause();
+            if (backdropVideo.hasAttribute("src")) {
+              backdropVideo.removeAttribute("src");
+              backdropVideo.load();
+            }
+            backdropVideo.removeAttribute("data-ready");
+          } else {
+            playBackground();
+          }
+          syncButton();
+        }
+
+        toggle.addEventListener("click", () => {
+          wantsPlayback = backdropVideo.paused;
+          if (wantsPlayback) playBackground();
+          else backdropVideo.pause();
+        });
+        backdropVideo.addEventListener("playing", () => {
+          backdropVideo.dataset.ready = "true";
+          syncButton();
+        });
+        backdropVideo.addEventListener("pause", syncButton);
+        backdropVideo.addEventListener("error", () => {
+          backdropVideo.removeAttribute("data-ready");
+          syncButton();
+        });
+        motion.addEventListener("change", updateMotion);
+        document.addEventListener("visibilitychange", () => {
+          if (document.hidden) backdropVideo.pause();
+          else playBackground();
+        });
+        if (document.readyState === "complete") updateMotion();
+        else window.addEventListener("load", updateMotion, { once: true });
+      }
+
+      if ("IntersectionObserver" in window && !motion.matches) {
+        const observer = new IntersectionObserver((entries) => {
+          for (const entry of entries) {
+            if (!entry.isIntersecting) continue;
+            entry.target.classList.add("arrived");
+            observer.unobserve(entry.target);
+          }
+        }, { threshold: .12 });
+        document.querySelectorAll("[data-reveal]").forEach((section) => observer.observe(section));
+      }
+
+      const filterGroup = document.querySelector<HTMLElement>(".work-filters");
+      const filterButtons = [...document.querySelectorAll<HTMLButtonElement>("[data-filter]")];
+      const cards = [...document.querySelectorAll<HTMLElement>("[data-project]")];
+      const workCount = document.querySelector("#work-count");
+      if (filterGroup && workCount) {
+        const count = workCount;
+        function showProjects(group: string) {
+          let visible = 0;
+          for (const card of cards) {
+            card.hidden = group !== "all" && card.dataset.project !== group;
+            if (!card.hidden) visible++;
+          }
+          for (const filter of filterButtons) {
+            filter.setAttribute("aria-pressed", String(filter.dataset.filter === group));
+          }
+          count.textContent = visible + (visible === 1 ? " project" : " projects");
+        }
+        for (const filter of filterButtons) {
+          filter.addEventListener("click", () => showProjects(filter.dataset.filter ?? "all"));
+        }
+        function revealProject(id: string) {
+          if (cards.some((card) => card.id === id && card.hidden)) showProjects("all");
+        }
+        document.querySelectorAll<HTMLAnchorElement>(".skill-projects a, .gallery-card").forEach((link) => {
+          link.addEventListener("click", () => revealProject(link.hash.slice(1)));
+        });
+        addEventListener("hashchange", () => revealProject(location.hash.slice(1)));
+        filterGroup.hidden = false;
+      }
+
+      const navigation = document.querySelector<HTMLElement>(".nav-links");
+      const locations = [...document.querySelectorAll<HTMLAnchorElement>(".nav-links a")].flatMap((link) => {
+        const section = document.getElementById(link.hash.slice(1));
+        return section ? [{ link, section }] : [];
+      });
+      if (navigation && locations.length) {
+        const nav = navigation;
+        let navFrame = 0;
+        function updateLocation() {
+          navFrame = 0;
+          const readingLine = Math.min(innerHeight * .35, 280);
+          const endTolerance = Math.max(24, innerHeight * .05);
+          const atBottom = scrollY > 0 && scrollY + innerHeight >= document.documentElement.scrollHeight - endTolerance;
+          const current = atBottom ? locations.at(-1) :
+            locations.findLast(({ section }) => section.getBoundingClientRect().top <= readingLine) ?? locations[0];
+          if (!current) return;
+          for (const { link } of locations) {
+            if (link === current.link) link.setAttribute("aria-current", "location");
+            else link.removeAttribute("aria-current");
+          }
+          nav.style.setProperty("--indicator-x", current.link.offsetLeft + "px");
+          nav.style.setProperty("--indicator-width", current.link.offsetWidth + "px");
+          nav.dataset.ready = "true";
+        }
+        function queueLocation() {
+          if (!navFrame) navFrame = requestAnimationFrame(updateLocation);
+        }
+        addEventListener("scroll", queueLocation, { passive: true });
+        addEventListener("resize", queueLocation, { passive: true });
+        void document.fonts.ready.then(queueLocation);
+        queueLocation();
+      }
+
+      const precisePointer = matchMedia("(hover: hover) and (pointer: fine)");
+      let anchorFrame = 0;
+      function stopAnchor() {
+        cancelAnimationFrame(anchorFrame);
+        anchorFrame = 0;
+      }
+      for (const event of ["wheel", "touchstart", "pointerdown", "keydown", "popstate"]) {
+        addEventListener(event, stopAnchor, { passive: true });
+      }
+      motion.addEventListener("change", stopAnchor);
+      document.addEventListener("click", (event) => {
+        if (event.defaultPrevented || motion.matches || !precisePointer.matches || event.detail === 0 ||
+            event.button !== 0 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+        if ("PointerEvent" in window && event instanceof PointerEvent && event.pointerType !== "mouse") return;
+        const anchor = event.target instanceof Element && event.target.closest<HTMLAnchorElement>('a[href^="#"]');
+        const destination = anchor && document.getElementById(anchor.hash.slice(1));
+        if (!anchor || !destination?.matches('section[tabindex="-1"]')) return;
+        event.preventDefault();
+        stopAnchor();
+        const start = scrollY;
+        // Take over from any native anchor scroll before measuring the new destination.
+        scrollTo({ top: start, behavior: "instant" });
+        const offset = parseFloat(getComputedStyle(destination).scrollMarginTop) || 0;
+        const limit = document.documentElement.scrollHeight - innerHeight;
+        const end = Math.max(0, Math.min(limit, start + destination.getBoundingClientRect().top - offset));
+        const distance = end - start;
+        const duration = Math.max(330, Math.min(710, Math.abs(distance) * .38));
+        const began = performance.now();
+        if (location.hash !== anchor.hash) history.pushState(null, "", anchor.hash);
+        destination.focus({ preventScroll: true });
+        function move(now: number) {
+          const progress = Math.min(1, (now - began) / duration);
+          const eased = 1 - (1 - progress) ** 4;
+          scrollTo({ top: start + distance * eased, behavior: "instant" });
+          anchorFrame = progress < 1 ? requestAnimationFrame(move) : 0;
+        }
+        if (Math.abs(distance) > 1) anchorFrame = requestAnimationFrame(move);
+      });
+
+      const hero = document.querySelector<HTMLElement>(".hero");
+      const sheen = hero?.querySelector<HTMLElement>(".hero-sheen");
+      if (hero && sheen) {
+        let sheenFrame = 0;
+        hero.addEventListener("pointermove", (event) => {
+          if (event.pointerType !== "mouse" || !precisePointer.matches || motion.matches) return;
+          cancelAnimationFrame(sheenFrame);
+          sheenFrame = requestAnimationFrame(() => {
+            const bounds = hero.getBoundingClientRect();
+            const x = event.clientX - bounds.left;
+            const y = event.clientY - bounds.top;
+            sheen.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%)`;
+            hero.dataset.sheen = "true";
+          });
+        });
+        hero.addEventListener("pointerleave", () => {
+          cancelAnimationFrame(sheenFrame);
+          hero.removeAttribute("data-sheen");
+        });
+      }
+    </script>
+  </body>
+</html>
